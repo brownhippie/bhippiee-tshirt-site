@@ -1,0 +1,8 @@
+{
+  "name": "bhippiee-tshirt-site",
+  "version": "1.0.0",
+  "description": "Free, SEO-first static storefront for the Resonance Collection, built from live Etsy listings.",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": { "build": "node build.js" }
+}
