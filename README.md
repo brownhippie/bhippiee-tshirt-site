@@ -34,7 +34,7 @@ npx http-server dist   # or any static server, to preview before pushing
 If you already have `bhippiee-brand-app` connected to Etsy on this same
 machine (sibling folder), this script reuses that connection automatically
 — nothing else to do. Otherwise, copy `.env.example` to `.env` and fill in
-`ETSY_CLIENT_ID` + `ETSY_REFRESH_TOKEN` (get the refresh token by connecting
+Simplest: `ETSY_CLIENT_ID` (app keystring) + `ETSY_SHOP_NAME` (+ `ETSY_SHARED_SECRET` if shown). Listings are public, so no login token is needed. Fallback: `ETSY_REFRESH_TOKEN` (get it by connecting
 Etsy once in the brand app, then copying `refresh_token` out of its
 `data/.etsy-token.json`).
 
@@ -44,7 +44,7 @@ Etsy once in the brand app, then copying `refresh_token` out of its
    public repos) and push this folder to it.
 2. Repo → **Settings → Pages** → Source: **GitHub Actions**.
 3. Repo → **Settings → Secrets and variables → Actions**:
-   - **Secrets**: `ETSY_CLIENT_ID`, `ETSY_REFRESH_TOKEN`
+   - **Secrets**: `ETSY_CLIENT_ID`, `ETSY_SHARED_SECRET` (if any); **Variable**: `ETSY_SHOP_NAME`
    - **Variables**: `SITE_URL` (your real `https://<you>.github.io/<repo>`
      URL — GitHub shows you the exact address after step 2),
      `BRAND_NAME` (optional, defaults to "Resonance Collection")

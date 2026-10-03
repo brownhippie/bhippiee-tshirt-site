@@ -90,10 +90,31 @@ async function getAccessToken() {
   return r.json.access_token;
 }
 
-async function fetchListings() {
-  const clientId = process.env.ETSY_CLIENT_ID;
+// Etsy's x-api-key: the app's keystring. Newer apps need "keystring:shared_secret" (colon-joined);
+// set ETSY_SHARED_SECRET to send that form. The keystring alone is what older apps use.
+function apiKeyHeader() {
+  const keystring = process.env.ETSY_CLIENT_ID;
+  if (!keystring) throw new Error('ETSY_CLIENT_ID (the app keystring) is not set (.env locally, or a repo secret in CI)');
+  return process.env.ETSY_SHARED_SECRET ? `${keystring}:${process.env.ETSY_SHARED_SECRET}` : keystring;
+}
+
+// SIMPLE PATH (2026-10-03): a shop's active listings are public, so with just the app key and the
+// shop's name there is no login token to fetch, store, or rotate. `call` is injectable for testing.
+async function fetchPublic(apiKey, shopName, call = httpsCall) {
+  const headers = { 'x-api-key': apiKey };
+  const shops = await call(`https://api.etsy.com/v3/application/shops?shop_name=${encodeURIComponent(shopName)}`, { headers });
+  const shop = shops.json && shops.json.results && shops.json.results[0];
+  if (!shop) throw new Error(`Etsy shop "${shopName}" not found, or the key was refused (HTTP ${shops.status}): ${String(shops.text).slice(0, 200)}`);
+  const listings = await call(
+    `https://api.etsy.com/v3/application/shops/${shop.shop_id}/listings/active?limit=100&includes=Images`, { headers });
+  if (!listings.json || !listings.json.results) throw new Error(`Etsy listings fetch failed (HTTP ${listings.status}): ${String(listings.text).slice(0, 200)}`);
+  return { shop, listings: listings.json.results };
+}
+
+// FALLBACK: the login-token path, if the public one is refused or no shop name is set.
+async function fetchWithOAuth() {
   const accessToken = await getAccessToken();
-  const headers = { 'x-api-key': clientId, Authorization: 'Bearer ' + accessToken };
+  const headers = { 'x-api-key': apiKeyHeader(), Authorization: 'Bearer ' + accessToken };
   const me = await httpsCall('https://api.etsy.com/v3/application/users/me', { headers });
   if (!me.json || !me.json.user_id) throw new Error('Etsy /users/me failed: ' + me.text.slice(0, 300));
   const shops = await httpsCall(`https://api.etsy.com/v3/application/users/${me.json.user_id}/shops`, { headers });
@@ -103,6 +124,19 @@ async function fetchListings() {
     `https://api.etsy.com/v3/application/shops/${shop.shop_id}/listings/active?limit=100&includes=Images`, { headers });
   if (!listings.json || !listings.json.results) throw new Error('Etsy listings fetch failed: ' + listings.text.slice(0, 300));
   return { shop, listings: listings.json.results };
+}
+
+async function fetchListings() {
+  const apiKey = apiKeyHeader();
+  const shopName = process.env.ETSY_SHOP_NAME;
+  if (shopName) {
+    try { return await fetchPublic(apiKey, shopName); }
+    catch (e) {
+      if (!(process.env.ETSY_REFRESH_TOKEN || fs.existsSync(LOCAL_TOKEN_FILE))) throw e;
+      console.warn('Public fetch failed (' + e.message + ') -- falling back to the login-token path.');
+    }
+  }
+  return fetchWithOAuth();
 }
 
 /* ---------- SEO-first HTML templates ---------- */
@@ -288,4 +322,4 @@ async function build() {
 }
 
 if (require.main === module) build().catch((e) => { console.error('Build failed:', e.message); process.exit(1); });
-module.exports = { build, fetchListings, writeSite, productPage, indexPage, sitemap };
+module.exports = { build, fetchListings, fetchPublic, apiKeyHeader, writeSite, productPage, indexPage, sitemap };
