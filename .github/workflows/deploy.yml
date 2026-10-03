@@ -1,0 +1,46 @@
+name: Rebuild and deploy the Resonance Collection site
+# This IS the "SEO loop" -- runs on a schedule, re-pulls live Etsy listings,
+# regenerates every page + sitemap.xml fresh, and redeploys to GitHub Pages.
+# Free: public repos get unlimited Actions minutes; this job takes ~30s.
+
+on:
+  schedule:
+    - cron: '0 13 * * *'   # daily, 13:00 UTC -- change the cron expression to taste
+  workflow_dispatch: {}     # adds a manual "Run workflow" button in the Actions tab
+  push:
+    branches: [main]
+    paths: ['build.js']     # also rebuilds immediately if the generator itself changes
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Build static site from live Etsy listings
+        run: node build.js
+        env:
+          ETSY_CLIENT_ID: ${{ secrets.ETSY_CLIENT_ID }}
+          ETSY_REFRESH_TOKEN: ${{ secrets.ETSY_REFRESH_TOKEN }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          BRAND_NAME: ${{ vars.BRAND_NAME }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+          include-hidden-files: true   # needed for dist/.nojekyll -- without this GitHub Pages runs Jekyll over the output
+      - id: deployment
+        uses: actions/deploy-pages@v4
