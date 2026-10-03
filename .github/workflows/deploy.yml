@@ -34,6 +34,8 @@ jobs:
         run: node build.js
         env:
           ETSY_CLIENT_ID: ${{ secrets.ETSY_CLIENT_ID }}
+          ETSY_SHARED_SECRET: ${{ secrets.ETSY_SHARED_SECRET }}
+          ETSY_SHOP_NAME: ${{ vars.ETSY_SHOP_NAME }}
           ETSY_REFRESH_TOKEN: ${{ secrets.ETSY_REFRESH_TOKEN }}
           SITE_URL: ${{ vars.SITE_URL }}
           BRAND_NAME: ${{ vars.BRAND_NAME }}
